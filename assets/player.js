@@ -12,6 +12,7 @@ if (audio.hasAttribute("src")) {
   const playIcon = "M8 5.5v13L19 12z";
   const pauseIcon = "M7 5h4v14H7z M14 5h4v14h-4z";
   const unavailable = "Аудиофрагмент пока недоступен";
+  let loadingTimer;
 
   function formatTime(seconds) {
     const minutes = Math.floor(seconds / 60);
@@ -20,6 +21,8 @@ if (audio.hasAttribute("src")) {
   }
 
   function showStatus(message = "") {
+    clearTimeout(loadingTimer);
+    loadingTimer = undefined;
     status.hidden = !message;
     status.textContent = message;
   }
@@ -67,10 +70,6 @@ if (audio.hasAttribute("src")) {
       return;
     }
 
-    if (audio.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
-      showStatus("Аудиофрагмент загружается…");
-    }
-
     try {
       await audio.play();
     } catch (error) {
@@ -105,7 +104,19 @@ if (audio.hasAttribute("src")) {
     });
   }
   audio.addEventListener("waiting", () => {
-    if (!audio.paused) showStatus("Аудиофрагмент загружается…");
+    if (audio.paused || loadingTimer !== undefined) return;
+
+    // Brief buffering should not flash a message or shift the layout.
+    loadingTimer = setTimeout(() => {
+      loadingTimer = undefined;
+      if (
+        !audio.paused &&
+        !audio.error &&
+        audio.readyState < HTMLMediaElement.HAVE_FUTURE_DATA
+      ) {
+        showStatus("Аудиофрагмент загружается…");
+      }
+    }, 400);
   });
   audio.addEventListener("error", handleError);
 
